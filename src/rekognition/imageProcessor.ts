@@ -1,48 +1,45 @@
-import {
-  DetectLabelsCommand,
-  Label,
-  RekognitionClient,
-} from '@aws-sdk/client-rekognition';
-import { CustomLabelInstance, CustomRekognitionLabel } from './types';
+import { FaceDetail, Label, Rekognition } from '@aws-sdk/client-rekognition';
+import { CustomLabelInstance, RekognitionResponse } from './types';
+
+type ImageProcessorProps = {
+  region: string;
+  bucket: string;
+  key: string;
+};
 
 export class ImageProcessor {
+  private key: string;
   private region: string;
   private bucket: string;
-  private key: string;
+  private rekognition: Rekognition;
 
-  constructor({
-    region,
-    bucket,
-    key,
-  }: {
-    region: string;
-    bucket: string;
-    key: string;
-  }) {
+  constructor({ region, bucket, key }: ImageProcessorProps) {
     this.region = region;
     this.bucket = bucket;
     this.key = key;
+    this.rekognition = this.createRekognitionClient();
   }
 
-  public async processImage(): Promise<CustomRekognitionLabel[] | undefined> {
-    const rekognition = this.createRekognitionClient();
-    const command = this.createDetectLabelsCommand();
+  public async processImage(): Promise<RekognitionResponse | undefined> {
+    const [labelsResponse, facesResponse] = await Promise.all([
+      this.detectLabels(),
+      this.detectFaces(),
+    ]);
 
     try {
-      const response = await rekognition.send(command);
-      return this.formatProcessorMetadataLabels(response.Labels);
-    } catch (error) {
-      console.error('Rekognition failed:', error);
-      throw error;
-    }
+      return {
+        labels: this.formatProcessorMetadataLabels(labelsResponse.Labels),
+        faces: this.formatProcessorMetadataFaces(facesResponse.FaceDetails),
+      };
+    } catch (error) {}
   }
 
-  private createRekognitionClient(): RekognitionClient {
-    return new RekognitionClient({ region: this.region });
+  private createRekognitionClient() {
+    return new Rekognition({ region: this.region });
   }
 
-  private createDetectLabelsCommand(): DetectLabelsCommand {
-    return new DetectLabelsCommand({
+  private async detectLabels() {
+    return await this.rekognition.detectLabels({
       Image: {
         S3Object: {
           Bucket: this.bucket,
@@ -52,20 +49,22 @@ export class ImageProcessor {
       MaxLabels: 10,
       MinConfidence: 80,
     });
-    // return new DetectFacesCommand({
-    //   Image: {
-    //     S3Object: {
-    //       Bucket: this.bucket,
-    //       Name: this.key,
-    //     },
-    //   },
-    //   Attributes: ['ALL'],
-    // });
+  }
+  private async detectFaces() {
+    return await this.rekognition.detectFaces({
+      Image: {
+        S3Object: {
+          Bucket: this.bucket,
+          Name: this.key,
+        },
+      },
+      Attributes: ['ALL'],
+    });
   }
 
   private formatProcessorMetadataLabels(
     labels?: Label[],
-  ): CustomRekognitionLabel[] | undefined {
+  ): RekognitionResponse['labels'] | undefined {
     return labels?.map((label) => ({
       name: label.Name?.toLowerCase(),
       confidence: label.Confidence,
@@ -101,5 +100,34 @@ export class ImageProcessor {
         alias.Name?.toLocaleLowerCase(),
       ) as string[],
     }));
+  }
+
+  private formatProcessorMetadataFaces(
+    faces?: FaceDetail[],
+  ): RekognitionResponse['faces'] | undefined {
+    return faces?.map((face) => {
+      return {
+        ageRange: {
+          low: face.AgeRange?.Low,
+          high: face.AgeRange?.High,
+        },
+        beard: face.Beard?.Value,
+        confidence: face.Confidence,
+        emotions: face.Emotions?.map((emotion) => {
+          return {
+            type: emotion.Type?.toLowerCase(),
+            confidence: emotion.Confidence,
+          };
+        }),
+        eyeglasses: face.Eyeglasses?.Value,
+        eyesOpen: face.EyesOpen?.Value,
+        faceOccluded: face.FaceOccluded?.Value,
+        gender: face.Gender?.Value,
+        mustache: face.Mustache?.Value,
+        mouthOpen: face.MouthOpen?.Value,
+        smile: face.Smile?.Value,
+        sunglasses: face.Sunglasses?.Value,
+      };
+    });
   }
 }

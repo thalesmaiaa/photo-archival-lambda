@@ -1,10 +1,32 @@
-export type CustomRekognitionLabel = {
-  name?: string;
-  confidence?: number;
-  instances?: CustomLabelInstance[];
-  parents?: string[];
-  categories?: string[];
-  aliases?: string[];
+export type RekognitionResponse = {
+  labels?: {
+    name?: string;
+    confidence?: number;
+    instances?: CustomLabelInstance[];
+    parents?: string[];
+    categories?: string[];
+    aliases?: string[];
+  }[];
+  faces?: {
+    ageRange?: {
+      low?: number;
+      high?: number;
+    };
+    beard?: boolean;
+    confidence?: number;
+    emotions?: {
+      type?: string;
+      confidence?: number;
+    }[];
+    eyeglasses?: boolean;
+    eyesOpen?: boolean;
+    faceOccluded?: boolean;
+    gender?: string;
+    mustache?: boolean;
+    mouthOpen?: boolean;
+    smile?: boolean;
+    sunglasses?: boolean;
+  }[];
 };
 
 export type CustomLabelInstance = {
