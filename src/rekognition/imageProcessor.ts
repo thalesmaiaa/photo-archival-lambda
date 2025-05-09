@@ -1,5 +1,5 @@
 import { FaceDetail, Label, Rekognition } from '@aws-sdk/client-rekognition';
-import { CustomLabelInstance, RekognitionResponse } from './types';
+import { RekognitionResponse } from './types';
 
 type ImageProcessorProps = {
   region: string;
@@ -68,36 +68,8 @@ export class ImageProcessor {
     return labels?.map((label) => ({
       name: label.Name?.toLowerCase(),
       confidence: label.Confidence,
-      instances: label.Instances?.map((instance) => {
-        return {
-          boundingBox: {
-            left: instance.BoundingBox?.Left,
-            top: instance.BoundingBox?.Top,
-            width: instance.BoundingBox?.Width,
-            height: instance.BoundingBox?.Height,
-          },
-          confidence: instance.Confidence,
-          dominantColors: instance.DominantColors?.map((color) => {
-            return {
-              red: color.Red,
-              green: color.Green,
-              blue: color.Blue,
-              hexCode: color.HexCode,
-              cssColor: color.CSSColor,
-              simplifiedColor: color.SimplifiedColor,
-              pixelPercentage: color.PixelPercent,
-            };
-          }) as CustomLabelInstance['dominantColors'],
-        };
-      }),
-      parents: label.Parents?.map((parent) =>
-        parent.Name?.toLocaleLowerCase(),
-      ) as string[],
       categories: label.Categories?.map((category) =>
-        category.Name?.toLocaleLowerCase(),
-      ) as string[],
-      aliases: label.Aliases?.map((alias) =>
-        alias.Name?.toLocaleLowerCase(),
+        category.Name?.toLocaleLowerCase().split(' ').join('_'),
       ) as string[],
     }));
   }
@@ -107,26 +79,22 @@ export class ImageProcessor {
   ): RekognitionResponse['faces'] | undefined {
     return faces?.map((face) => {
       return {
-        ageRange: {
-          low: face.AgeRange?.Low,
-          high: face.AgeRange?.High,
-        },
+        ageRange: `${face.AgeRange?.Low} - ${face.AgeRange?.High}`,
+        gender: face.Gender?.Value,
+        dominantEmotion: face.Emotions?.sort(
+          (a, b) => (b.Confidence || 0) - (a?.Confidence || 0),
+        )[0].Type?.toLowerCase(),
         beard: face.Beard?.Value,
-        confidence: face.Confidence,
-        emotions: face.Emotions?.map((emotion) => {
-          return {
-            type: emotion.Type?.toLowerCase(),
-            confidence: emotion.Confidence,
-          };
-        }),
+        mustache: face.Mustache?.Value,
+        smile: face.Smile?.Value,
         eyeglasses: face.Eyeglasses?.Value,
         eyesOpen: face.EyesOpen?.Value,
-        faceOccluded: face.FaceOccluded?.Value,
-        gender: face.Gender?.Value,
-        mustache: face.Mustache?.Value,
-        mouthOpen: face.MouthOpen?.Value,
-        smile: face.Smile?.Value,
         sunglasses: face.Sunglasses?.Value,
+        emotions: face.Emotions?.filter(
+          (emotion) => emotion.Confidence && emotion.Confidence > 5,
+        )
+          .map((emotion) => emotion.Type?.toLowerCase())
+          .filter(Boolean) as string[],
       };
     });
   }
