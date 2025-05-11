@@ -1,7 +1,7 @@
 export type RekognitionResponse = {
   labels?: {
     name?: string;
-    confidence?: number;
+    confidence?: string;
     categories?: string[];
   }[];
   faces?: {

@@ -67,7 +67,7 @@ export class ImageProcessor {
   ): RekognitionResponse['labels'] | undefined {
     return labels?.map((label) => ({
       name: label.Name?.toLowerCase(),
-      confidence: label.Confidence,
+      confidence: label.Confidence?.toFixed(2),
       categories: label.Categories?.map((category) =>
         category.Name?.toLocaleLowerCase().split(' ').join('_'),
       ) as string[],
