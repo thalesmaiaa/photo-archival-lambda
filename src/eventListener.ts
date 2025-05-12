@@ -15,7 +15,7 @@ export class EventListener {
 
       const response = await imageProcessor.processImage();
       if (response) {
-        sendImageMetadata({
+        await sendImageMetadata({
           metadata: response,
           objectKey: key,
         });
