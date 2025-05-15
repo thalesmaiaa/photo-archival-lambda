@@ -17,25 +17,23 @@ export class ImageProcessor {
     this.region = region;
     this.bucket = bucket;
     this.key = key;
-    this.rekognition = this.createRekognitionClient();
+    this.rekognition = new Rekognition({ region: this.region });
   }
 
-  public async processImage(): Promise<RekognitionResponse | undefined> {
-    const [labelsResponse, facesResponse] = await Promise.all([
-      this.detectLabels(),
-      this.detectFaces(),
-    ]);
-
+  public async extractImageMetadata(): Promise<
+    RekognitionResponse | undefined
+  > {
     try {
+      const [labelsResponse, facesResponse] = await Promise.all([
+        this.detectLabels(),
+        this.detectFaces(),
+      ]);
+
       return {
         labels: this.formatProcessorMetadataLabels(labelsResponse.Labels),
         faces: this.formatProcessorMetadataFaces(facesResponse.FaceDetails),
       };
     } catch (error) {}
-  }
-
-  private createRekognitionClient() {
-    return new Rekognition({ region: this.region });
   }
 
   private async detectLabels() {
@@ -82,7 +80,7 @@ export class ImageProcessor {
         ageRange: `${face.AgeRange?.Low} - ${face.AgeRange?.High}`,
         gender: face.Gender?.Value,
         dominantEmotion: face.Emotions?.sort(
-          (a, b) => (b.Confidence || 0) - (a?.Confidence || 0),
+          (a, b) => (b?.Confidence as number) - (a?.Confidence as number),
         )[0].Type?.toLowerCase(),
         beard: face.Beard?.Value,
         mustache: face.Mustache?.Value,

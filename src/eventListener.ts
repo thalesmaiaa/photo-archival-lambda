@@ -4,22 +4,19 @@ import { ImageProcessor, sendImageMetadata } from './rekognition';
 export class EventListener {
   public async listen(event: S3Event) {
     await Promise.all(
-      event.Records.map(async (record) => {
-        const bucket = record.s3.bucket.name;
-        const key = decodeURIComponent(
-          record.s3.object.key.replace(/\+/g, ' '),
-        );
-        const region = record.awsRegion;
+      event.Records.map(async ({ awsRegion, s3 }) => {
+        const bucket = s3.bucket.name;
+        const key = decodeURIComponent(s3.object.key.replace(/\+/g, ' '));
         const imageProcessor = new ImageProcessor({
-          region,
+          region: awsRegion,
           bucket,
           key,
         });
 
-        const response = await imageProcessor.processImage();
-        if (response) {
+        const metadata = await imageProcessor.extractImageMetadata();
+        if (metadata) {
           await sendImageMetadata({
-            metadata: response,
+            metadata,
             objectKey: key,
           });
         }
