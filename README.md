@@ -46,35 +46,104 @@ Before deploying this project, ensure you have the following:
 
 ## Deploy Lambda Function into AWS
 
-### Trigger Events
-- **Push to `main` branch**: The workflow runs whenever changes are pushed to the `main` branch.
+### Workflow Trigger & Permissions
 
-### Permissions
-- Grants `read` access to repository contents.
-- Grants `write` access to the `id-token` for authentication with AWS.
+```yaml
+on:
+  push:
+    branches:
+      - main
 
-### Deploy
+permissions:
+  contents: read    # allows checking out code
+  id-token: write   # enables OIDC for AWS auth
+```
+- **Trigger**: Runs on all pushes to the `main` branch.
+- **contents: read**: Fetches repository files.
+- **id-token: write**: Grants an OIDC token to assume an AWS role securely.
 
-The workflow consists of a single job named `deploy` that runs on an `ubuntu-latest` environment. The job includes the following steps:
+---
 
-1. **Checkout Code**: Uses the `actions/checkout` action to clone the repository code into the runner.
-2. **Set Up Node.js**: Configures Node.js version `22.15.0` and enables caching for `npm` dependencies.
-3. **Install Dependencies**: Installs project dependencies using `npm ci`.
-4. **Build the Project**: Runs the build process using `npm run build`.
-5. **Package Files**: Copies necessary files (`package.json`, `node_modules`) to the `dist` directory and creates a ZIP archive (`app.zip`) of the project.
-6. **Configure AWS Credentials**: Uses the `aws-actions/configure-aws-credentials` action to authenticate with AWS using a role specified in repository secrets.
-7. **Deploy Lambda Function**: Updates the Lambda function code by uploading the `app.zip` file to AWS using the AWS CLI.
+## Jobs Overview
 
-## Secrets Required
-The workflow relies on the following secrets for deployment:
-- `AWS_ASSUME_ROLE_ARN`: The ARN of the AWS role to assume for deployment.
-- `AWS_REGION`: The AWS region where the Lambda function is deployed.
-- `AWS_LAMBDA_FUNCTION_NAME`: The name of the Lambda function to update.
+- **build**: Checkout code → install dependencies → compile → package artifact
+- **deploy**: Download artifact → configure AWS credentials → update Lambda
 
-## Usage
-1. Ensure the required secrets are configured in the repository settings.
-2. Push changes to the `main` branch or create a pull request targeting `main` to trigger the workflow.
-3. The workflow will automatically build, package, and deploy the Lambda function to AWS.
+---
+
+## Build Job Details
+
+```yaml
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache NPM
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.15.0'
+      - run: npm ci
+      - run: npm run build
+      - name: Package artifact
+        working-directory: dist
+        run: zip -r ../app.zip .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lambda-package
+          path: app.zip
+```
+1. **Checkout**: Retrieves your repository.
+2. **Cache NPM**: Speeds up installs by caching based on `package-lock.json`.
+3. **Setup Node.js**: Installs the specified Node version.
+4. **Install & Build**: `npm ci` for a clean install, then `npm run build` to output into `dist/`.
+5. **Package**: Zips `dist/` into `app.zip`.
+6. **Upload Artifact**: Exposes `app.zip` to the deploy job.
+
+---
+
+## Deploy Job Details
+
+```yaml
+jobs:
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: lambda-package
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_ARN }}
+          aws-region:    ${{ secrets.AWS_REGION }}
+      - name: Deploy to Lambda
+        run: |
+          aws --no-cli-pager lambda update-function-code \
+            --function-name ${{ secrets.AWS_LAMBDA_FUNCTION_NAME }} \
+            --zip-file fileb://app.zip \
+            --query 'LastModified' --output text
+```
+1. **Download Artifact**: Retrieves the `app.zip` package.
+2. **Configure AWS**: Assumes the IAM role via OIDC.
+3. **Deploy**: Updates your Lambda function and outputs the `LastModified` timestamp only.
+
+---
+
+## Secrets & Configuration
+
+| Secret Name                     | Description                              |
+|---------------------------------|------------------------------------------|
+| `AWS_ASSUME_ROLE_ARN`           | IAM Role ARN for OIDC authentication     |
+| `AWS_REGION`                    | AWS region (e.g., `us-east-1`)           |
+| `AWS_LAMBDA_FUNCTION_NAME`      | Target Lambda function name or ARN       |
+
+> **Note**: Learn how to manage encrypted secrets in GitHub: https://docs.github.com/actions/security-guides/encrypted-secrets
+
 
 ## Notes
 - The workflow assumes the project is built using Node.js and follows a specific structure for deployment.

@@ -1,4 +1,4 @@
-name: Deploy lambda function
+name: Build and Deploy lambda function
 
 on:
   push:
@@ -47,4 +47,4 @@ jobs:
         run: |
           aws lambda update-function-code \
             --function-name ${{ secrets.AWS_LAMBDA_FUNCTION_NAME }} \
-            --zip-file fileb://app.zip
+            --zip-file fileb://app.zip --query 'LastModified' --output text
