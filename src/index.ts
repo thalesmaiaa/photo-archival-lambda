@@ -1,4 +1,3 @@
-import './load-env';
 import { S3Event } from 'aws-lambda';
 import { EventListener } from './eventListener';
 
