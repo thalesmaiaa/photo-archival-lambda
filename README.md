@@ -22,8 +22,8 @@ Before deploying this project, ensure you have the following:
 1. Clone this repository:
 
    ```bash
-   git clone https://github.com/thalesmaiaa/photoarchival-lambda.git
-   cd photoarchival-lambda
+   git clone https://github.com/thalesmaiaa/photo-archival-lambda.git
+   cd photo-archival-lambda
    ```
 
 2. Install dependencies:
