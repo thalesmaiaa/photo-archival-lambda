@@ -12,7 +12,7 @@ export async function sendImageMetadata({
   objectKey,
 }: SendImageMetadata) {
   const formattedKey = objectKey.replace(/\//g, '-').replace(/\./g, '-');
-  await fetch(`${API_URL}/media/${formattedKey}/metadata`, {
+  await fetch(`${API_URL}/medias/${formattedKey}/metadata`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',

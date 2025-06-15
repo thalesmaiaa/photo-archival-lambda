@@ -30,7 +30,7 @@ describe('sendImageMetadata', () => {
 
   it('should call fetch with the correct URL and options', async () => {
     const formattedKey = 'folder-image-jpg';
-    const expectedUrl = `${API_URL}/media/${formattedKey}/metadata`;
+    const expectedUrl = `${API_URL}/medias/${formattedKey}/metadata`;
 
     mockFetch.mockResolvedValueOnce(new Response(null, { status: 200 }));
 
